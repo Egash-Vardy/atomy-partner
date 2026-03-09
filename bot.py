@@ -100,10 +100,11 @@ async def cmd_start(m: types.Message, state: FSMContext):
 async def ask_experience(m: types.Message, state: FSMContext):
     name = m.from_user.first_name
     update_user_step(m.from_user.id, "clicked_yes")
-    kb = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="Новичок"), KeyboardButton(text="Опытный")],
-        [KeyboardButton(text="Расскажи больше")]
-    ], resize_keyboard=True)
+    buttons = [[KeyboardButton(text="Новичок"), KeyboardButton(text="Опытный")],
+               [KeyboardButton(text="Расскажи больше")]]
+    if m.from_user.id in ADMIN_IDS:
+        buttons.append([KeyboardButton(text="⚙️ Админ-панель")])
+    kb = ReplyKeyboardMarkup(keyboard=buttons, resize_keyboard=True)
     await m.answer(f"Супер, {name}!🙌 Сколько времени ты уже занимаешься сетевым маркетингом?", reply_markup=kb)
     await state.set_state(UserSteps.waiting_for_experience)
 
@@ -125,7 +126,15 @@ async def give_checklist(m: types.Message, state: FSMContext):
                  f"Ты на правильном пути, {name}! Не забывай, что у тебя есть поддержка. "
                  f"Если застряла — <a href='{ADMIN_CONTACT}'>пиши мне</a>\n\n"
                  f"<b>Присоединяйся к нашему основному каналу ✅ и развивай свой бизнес с Atomy!🤩 Советы, обучение и реальный опыт – всё в одном месте!❤️</b>")
+    
+    # Если админ, добавим возможность вернуться в панель через reply кнопку
+    reply_kb = None
+    if m.from_user.id in ADMIN_IDS:
+        reply_kb = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text="⚙️ Админ-панель")]], resize_keyboard=True)
+    
     await m.answer(text_main, parse_mode="HTML", reply_markup=kb)
+    if reply_kb:
+        await m.answer("⚙️ Меню:", reply_markup=reply_kb)
     await state.clear()
 
 # --- АДМИН ПАНЕЛЬ ---
@@ -180,14 +189,12 @@ async def adm_db_get(c: types.CallbackQuery):
 
 # --- ЗАПУСК ---
 async def main():
-    # Запуск веб-сервера для Render
     app = web.Application()
     app.add_routes([web.get('/', handle)])
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, '0.0.0.0', int(os.environ.get('PORT', 8080)))
     await site.start()
-    
     init_db()
     scheduler.start()
     await bot.delete_webhook(drop_pending_updates=True)
