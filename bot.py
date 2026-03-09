@@ -9,6 +9,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import os
+from aiohttp import web
+
+# Это "обманка" для Render, чтобы он думал, что мы работаем как сайт
+async def handle(request):
+    return web.Response(text="Bot is running")
 
 # --- НАСТРОЙКИ ---
 API_TOKEN = '8779350094:AAFcX0HzlK_8FOmFEJAjH31gQimf7LF6378'
@@ -197,6 +203,12 @@ async def main():
     init_db();
     scheduler.start()
     await bot.delete_webhook(drop_pending_updates=True)
+    app = web.Application()
+app.add_routes([web.get('/', handle)])
+runner = web.AppRunner(app)
+await runner.setup()
+site = web.TCPSite(runner, '0.0.0.0', int(os.environ.get('PORT', 8080)))
+await site.start()
     await dp.start_polling(bot)
 
 
